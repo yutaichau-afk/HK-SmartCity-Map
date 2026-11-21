@@ -108,7 +108,10 @@ function centroid(geom) {
 }
 
 function normZh(s) {
-  return String(s || '').replace(/(鐵路站|港鐵站|站)$/u, '')
+  // MTR open data occasionally uses the variant 茘; normalize to official 荔.
+  return String(s || '')
+    .replaceAll('茘', '荔')
+    .replace(/(鐵路站|港鐵站|站)$/u, '')
 }
 
 function normEn(s) {
@@ -132,7 +135,7 @@ async function buildMtr() {
     if (!stations.has(code)) {
       stations.set(code, {
         code,
-        nameZh: r['Chinese Name'],
+        nameZh: String(r['Chinese Name'] || '').replaceAll('茘', '荔'),
         nameEn: r['English Name'],
         stationId: r['Station ID'],
         lines: new Set(),

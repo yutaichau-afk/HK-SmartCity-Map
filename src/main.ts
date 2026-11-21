@@ -88,8 +88,10 @@ function renderPickerList() {
   if (pickerMode === 'stations') {
     const items = stationCatalog.filter((s) => {
       if (!q) return true
+      const nameZh = s.nameZh.replaceAll('茘', '荔')
+      const query = q.replaceAll('茘', '荔')
       return (
-        s.nameZh.includes(q) ||
+        nameZh.includes(query) ||
         s.nameEn.toLowerCase().includes(q) ||
         s.code.toLowerCase().includes(q) ||
         s.lines.toLowerCase().includes(q)
