@@ -48,6 +48,7 @@ const tabStations = document.querySelector<HTMLButtonElement>('#tab-stations')!
 const tabCameras = document.querySelector<HTMLButtonElement>('#tab-cameras')!
 
 let abortCtrl: AbortController | null = null
+let panelGeneration = 0
 let linesMeta: LinesMeta = {}
 let pickerMode: 'stations' | 'cameras' = 'stations'
 let stationCatalog: StationProps[] = []
@@ -154,10 +155,12 @@ function closePanel() {
   pickerOpen.focus({ preventScroll: true })
 }
 
-function openPanel(html: string, state: 'loading' | 'ready' = 'ready') {
+function openPanel(html: string, state: 'loading' | 'ready' = 'ready'): number {
+  panelGeneration += 1
   panelBody.innerHTML = html
   panel.dataset.state = state
   panel.hidden = false
+  return panelGeneration
 }
 
 function escapeHtml(s: string): string {
@@ -234,7 +237,7 @@ async function showStation(props: StationProps) {
   abortCtrl = new AbortController()
   const signal = abortCtrl.signal
 
-  openPanel(
+  const generation = openPanel(
     `
     <h2>${escapeHtml(props.nameZh)}</h2>
     <p class="meta">${escapeHtml(props.nameEn)} · ${escapeHtml(props.code)}</p>
@@ -247,7 +250,7 @@ async function showStation(props: StationProps) {
   const results = await Promise.all(
     lines.map(async (line) => ({ line, result: await fetchSchedule(line, props.code, signal) })),
   )
-  if (signal.aborted) return
+  if (signal.aborted || generation !== panelGeneration) return
 
   const blocks: string[] = []
   for (const { line, result } of results) {
@@ -294,6 +297,7 @@ async function showStation(props: StationProps) {
     }
   }
 
+  if (generation !== panelGeneration) return
   openPanel(
     `
     <h2>${escapeHtml(props.nameZh)}</h2>
@@ -311,7 +315,7 @@ function showCamera(props: CameraProps) {
   abortCtrl = null
 
   const src = `${props.url}${props.url.includes('?') ? '&' : '?'}_ts=${Date.now()}`
-  openPanel(
+  const generation = openPanel(
     `
     <h2>交通快拍</h2>
     <p class="meta">${escapeHtml(props.description)}</p>
@@ -327,11 +331,13 @@ function showCamera(props: CameraProps) {
   if (!img || !status) return
 
   img.addEventListener('load', () => {
+    if (generation !== panelGeneration) return
     status.className = 'status-box info'
     status.textContent = '已顯示最新快拍。若畫面為「暫時未能提供服務」，代表該鏡頭現時無圖。'
     panel.dataset.state = 'ready'
   })
   img.addEventListener('error', () => {
+    if (generation !== panelGeneration) return
     status.className = 'status-box'
     status.textContent = '暫時未能載入此快拍點的照片。請稍後再試，或改選其他快拍點。'
     panel.dataset.state = 'ready'
