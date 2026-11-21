@@ -461,7 +461,10 @@ body,
   }
 
   .legend {
-    align-self: flex-start;
+    align-self: stretch;
+    flex-wrap: wrap;
+    max-width: 100%;
+    row-gap: 8px;
   }
 
   .panel {

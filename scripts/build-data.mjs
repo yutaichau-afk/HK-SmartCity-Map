@@ -317,9 +317,12 @@ async function buildCameras() {
   const features = rows
     .map((r) => {
       const key = (r.key || r['\ufeffkey'] || '').trim()
-      const lat = Number(r.latitude)
-      const lon = Number(r.longitude)
-      if (!key || !Number.isFinite(lat) || !Number.isFinite(lon)) return null
+      const latRaw = String(r.latitude ?? '').trim()
+      const lonRaw = String(r.longitude ?? '').trim()
+      if (!key || !latRaw || !lonRaw) return null
+      const lat = Number(latRaw)
+      const lon = Number(lonRaw)
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
       return {
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [lon, lat] },

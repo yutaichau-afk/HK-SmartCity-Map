@@ -97,7 +97,6 @@ function renderPickerList() {
       const li = document.createElement('li')
       const btn = document.createElement('button')
       btn.type = 'button'
-      btn.setAttribute('role', 'option')
       btn.setAttribute(
         'aria-label',
         `港鐵車站 ${s.nameZh} ${s.nameEn} ${s.code}`,
@@ -130,7 +129,6 @@ function renderPickerList() {
     const li = document.createElement('li')
     const btn = document.createElement('button')
     btn.type = 'button'
-    btn.setAttribute('role', 'option')
     btn.setAttribute('aria-label', `交通快拍 ${c.description}`)
     btn.innerHTML = `<strong>${escapeHtml(c.description)}</strong><span class="item-meta">${escapeHtml(c.region)} · ${escapeHtml(c.district)} · ${escapeHtml(c.key)}</span>`
     btn.addEventListener('click', () => {
