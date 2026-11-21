@@ -62,7 +62,14 @@
         />
         <ul id="picker-list" class="picker-list" role="listbox" aria-label="查詢結果"></ul>
       </section>
-      <aside id="panel" class="panel" hidden>
+      <aside
+        id="panel"
+        class="panel"
+        hidden
+        tabindex="-1"
+        aria-live="polite"
+        aria-label="詳情面板"
+      >
         <button type="button" class="panel-close" id="panel-close" aria-label="關閉">
           ×
         </button>

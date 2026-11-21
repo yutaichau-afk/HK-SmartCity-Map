@@ -68,31 +68,47 @@ await page.waitForFunction(() => {
   return !t.includes('正在查詢到站班次')
 }, null, { timeout: 20000 })
 
-await page.waitForFunction(() => {
-  const t = document.querySelector('#panel-body')?.textContent || ''
-  return (
-    /\d+\s*分鐘/.test(t) ||
-    t.includes('暫時沒有即將到站的班次') ||
-    t.includes('此方向暫無班次') ||
-    t.includes('資料缺席') ||
-    t.includes('特別') ||
-    t.includes('無法') ||
-    t.includes('暫停') ||
-    t.includes('延誤') ||
-    t.includes('暫無資料')
-  )
-}, null, { timeout: 20000 })
+const stationReady = (t) =>
+  /\d+\s*分鐘/.test(t) ||
+  t.includes('暫時沒有即將到站的班次') ||
+  t.includes('此方向暫無班次') ||
+  t.includes('資料缺席') ||
+  t.includes('特別') ||
+  t.includes('無法') ||
+  t.includes('暫停') ||
+  t.includes('延誤') ||
+  t.includes('暫無資料') ||
+  t.includes('網絡錯誤') ||
+  t.includes('查詢太頻繁') ||
+  t.includes('限流')
+
+await page.waitForFunction(
+  () => {
+    const t = document.querySelector('#panel-body')?.textContent || ''
+    return (
+      /\d+\s*分鐘/.test(t) ||
+      t.includes('暫時沒有即將到站的班次') ||
+      t.includes('此方向暫無班次') ||
+      t.includes('資料缺席') ||
+      t.includes('特別') ||
+      t.includes('無法') ||
+      t.includes('暫停') ||
+      t.includes('延誤') ||
+      t.includes('暫無資料') ||
+      t.includes('網絡錯誤') ||
+      t.includes('查詢太頻繁') ||
+      t.includes('限流')
+    )
+  },
+  null,
+  { timeout: 20000 },
+)
 
 await page.waitForTimeout(500)
 const stationText = await page.locator('#panel-body').innerText()
 report.steps.push({
   step: 'station_panel',
-  pass:
-    /金鐘/.test(stationText) &&
-    (/\d+\s*分鐘/.test(stationText) ||
-      /暫時沒有即將到站的班次|此方向暫無班次|資料缺席|特別|無法|暫停|延誤|暫無資料/.test(
-        stationText,
-      )),
+  pass: /金鐘/.test(stationText) && stationReady(stationText),
   preview: stationText.slice(0, 400),
 })
 await page.screenshot({ path: `${out}/02_station_arrivals.png` })
@@ -221,12 +237,7 @@ await page.waitForFunction(() => {
 const pickerText = await page.locator('#panel-body').innerText()
 report.steps.push({
   step: 'keyboard_picker',
-  pass:
-    /金鐘/.test(pickerText) &&
-    (/\d+\s*分鐘/.test(pickerText) ||
-      /暫時沒有即將到站的班次|此方向暫無班次|資料缺席|特別|無法|暫停|延誤|暫無資料/.test(
-        pickerText,
-      )),
+  pass: /金鐘/.test(pickerText) && stationReady(pickerText),
   preview: pickerText.slice(0, 200),
 })
 

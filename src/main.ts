@@ -106,6 +106,7 @@ function renderPickerList() {
       btn.addEventListener('click', () => {
         closePicker()
         void showStation(s)
+        panel.focus({ preventScroll: true })
       })
       li.appendChild(btn)
       pickerList.appendChild(li)
@@ -135,6 +136,7 @@ function renderPickerList() {
     btn.addEventListener('click', () => {
       closePicker()
       showCamera(c)
+      panel.focus({ preventScroll: true })
     })
     li.appendChild(btn)
     pickerList.appendChild(li)
@@ -326,6 +328,8 @@ async function bootstrap() {
   cameraCatalog = (cameras.features as Array<{ properties: CameraProps }>).map(
     (f) => f.properties,
   )
+  // Catalogs may finish after the user already opened the picker.
+  if (!picker.hidden) renderPickerList()
 
   const map = new MapLibreMap({
     container: 'map',
