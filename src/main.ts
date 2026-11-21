@@ -68,6 +68,7 @@ function openPicker() {
 
 function closePicker() {
   picker.hidden = true
+  pickerOpen.focus({ preventScroll: true })
 }
 
 function setPickerMode(mode: 'stations' | 'cameras') {
@@ -149,6 +150,7 @@ function closePanel() {
   panelBody.innerHTML = ''
   abortCtrl?.abort()
   abortCtrl = null
+  pickerOpen.focus({ preventScroll: true })
 }
 
 function openPanel(html: string) {
