@@ -148,13 +148,15 @@ function renderPickerList() {
 function closePanel() {
   panel.hidden = true
   panelBody.innerHTML = ''
+  delete panel.dataset.state
   abortCtrl?.abort()
   abortCtrl = null
   pickerOpen.focus({ preventScroll: true })
 }
 
-function openPanel(html: string) {
+function openPanel(html: string, state: 'loading' | 'ready' = 'ready') {
   panelBody.innerHTML = html
+  panel.dataset.state = state
   panel.hidden = false
 }
 
@@ -232,12 +234,15 @@ async function showStation(props: StationProps) {
   abortCtrl = new AbortController()
   const signal = abortCtrl.signal
 
-  openPanel(`
+  openPanel(
+    `
     <h2>${escapeHtml(props.nameZh)}</h2>
     <p class="meta">${escapeHtml(props.nameEn)} · ${escapeHtml(props.code)}</p>
     <div>${chips}</div>
     <div class="status-box info">正在查詢到站班次…</div>
-  `)
+  `,
+    'loading',
+  )
 
   const results = await Promise.all(
     lines.map(async (line) => ({ line, result: await fetchSchedule(line, props.code, signal) })),
@@ -289,12 +294,15 @@ async function showStation(props: StationProps) {
     }
   }
 
-  openPanel(`
+  openPanel(
+    `
     <h2>${escapeHtml(props.nameZh)}</h2>
     <p class="meta">${escapeHtml(props.nameEn)} · ${escapeHtml(props.code)}</p>
     <div>${chips}</div>
     ${blocks.join('') || '<div class="status-box">暫無資料可顯示。</div>'}
-  `)
+  `,
+    'ready',
+  )
 }
 
 function showCamera(props: CameraProps) {
@@ -303,13 +311,16 @@ function showCamera(props: CameraProps) {
   abortCtrl = null
 
   const src = `${props.url}${props.url.includes('?') ? '&' : '?'}_ts=${Date.now()}`
-  openPanel(`
+  openPanel(
+    `
     <h2>交通快拍</h2>
     <p class="meta">${escapeHtml(props.description)}</p>
     <p class="meta">${escapeHtml(props.region)} · ${escapeHtml(props.district)} · ${escapeHtml(props.key)}</p>
     <img class="snapshot" id="snapshot-img" alt="交通快拍 ${escapeHtml(props.key)}" src="${escapeHtml(src)}" />
     <div class="status-box info" id="snapshot-status">正在載入最新照片…</div>
-  `)
+  `,
+    'loading',
+  )
 
   const img = document.querySelector<HTMLImageElement>('#snapshot-img')
   const status = document.querySelector<HTMLElement>('#snapshot-status')
@@ -318,10 +329,12 @@ function showCamera(props: CameraProps) {
   img.addEventListener('load', () => {
     status.className = 'status-box info'
     status.textContent = '已顯示最新快拍。若畫面為「暫時未能提供服務」，代表該鏡頭現時無圖。'
+    panel.dataset.state = 'ready'
   })
   img.addEventListener('error', () => {
     status.className = 'status-box'
     status.textContent = '暫時未能載入此快拍點的照片。請稍後再試，或改選其他快拍點。'
+    panel.dataset.state = 'ready'
   })
 }
 

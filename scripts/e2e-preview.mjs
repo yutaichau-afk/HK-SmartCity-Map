@@ -62,55 +62,18 @@ const admClick = await page.evaluate(async () => {
 await page.mouse.click(admClick.x, admClick.y)
 await page.waitForSelector('#panel:not([hidden])', { timeout: 15000 })
 
-// Wait until loading finishes, then accept arrival / empty / alert / error states.
-await page.waitForFunction(() => {
-  const t = document.querySelector('#panel-body')?.textContent || ''
-  return !t.includes('正在查詢到站班次')
-}, null, { timeout: 20000 })
-
-const stationReady = (t) =>
-  /\d+\s*分鐘/.test(t) ||
-  t.includes('暫時沒有即將到站的班次') ||
-  t.includes('此方向暫無班次') ||
-  t.includes('資料缺席') ||
-  t.includes('特別') ||
-  t.includes('無法') ||
-  t.includes('暫停') ||
-  t.includes('延誤') ||
-  t.includes('暫無資料') ||
-  t.includes('網絡錯誤') ||
-  t.includes('查詢太頻繁') ||
-  t.includes('限流') ||
-  t.includes('查詢逾時')
-
+// Wait for rendered station results (not the loading marker).
 await page.waitForFunction(
-  () => {
-    const t = document.querySelector('#panel-body')?.textContent || ''
-    return (
-      /\d+\s*分鐘/.test(t) ||
-      t.includes('暫時沒有即將到站的班次') ||
-      t.includes('此方向暫無班次') ||
-      t.includes('資料缺席') ||
-      t.includes('特別') ||
-      t.includes('無法') ||
-      t.includes('暫停') ||
-      t.includes('延誤') ||
-      t.includes('暫無資料') ||
-      t.includes('網絡錯誤') ||
-      t.includes('查詢太頻繁') ||
-      t.includes('限流') ||
-      t.includes('查詢逾時')
-    )
-  },
+  () => document.querySelector('#panel')?.dataset.state === 'ready',
   null,
-  { timeout: 20000 },
+  { timeout: 25000 },
 )
 
 await page.waitForTimeout(500)
 const stationText = await page.locator('#panel-body').innerText()
 report.steps.push({
   step: 'station_panel',
-  pass: /金鐘/.test(stationText) && stationReady(stationText),
+  pass: /金鐘/.test(stationText) && !/正在查詢到站班次/.test(stationText),
   preview: stationText.slice(0, 400),
 })
 await page.screenshot({ path: `${out}/02_station_arrivals.png` })
@@ -230,16 +193,19 @@ const firstBtn = page.locator('#picker-list button').first()
 await firstBtn.waitFor({ state: 'visible' })
 await firstBtn.focus()
 await firstBtn.press('Enter')
-await page.waitForSelector('#picker[hidden]', { timeout: 5000 }).catch(() => {})
+await page.locator('#picker').waitFor({ state: 'hidden', timeout: 5000 })
 await page.waitForSelector('#panel:not([hidden])', { timeout: 15000 })
-await page.waitForFunction(() => {
-  const t = document.querySelector('#panel-body')?.textContent || ''
-  return t.includes('金鐘') && !t.includes('正在查詢到站班次')
-}, null, { timeout: 25000 })
+await page.waitForFunction(
+  () =>
+    document.querySelector('#panel')?.dataset.state === 'ready' &&
+    (document.querySelector('#panel-body')?.textContent || '').includes('金鐘'),
+  null,
+  { timeout: 25000 },
+)
 const pickerText = await page.locator('#panel-body').innerText()
 report.steps.push({
   step: 'keyboard_picker',
-  pass: /金鐘/.test(pickerText) && stationReady(pickerText),
+  pass: /金鐘/.test(pickerText) && !/正在查詢到站班次/.test(pickerText),
   preview: pickerText.slice(0, 200),
 })
 
