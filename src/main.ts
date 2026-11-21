@@ -53,6 +53,7 @@ let linesMeta: LinesMeta = {}
 let pickerMode: 'stations' | 'cameras' = 'stations'
 let stationCatalog: StationProps[] = []
 let cameraCatalog: CameraProps[] = []
+let catalogsReady = false
 
 panelClose.addEventListener('click', () => closePanel())
 pickerOpen.addEventListener('click', () => openPicker())
@@ -84,6 +85,11 @@ function setPickerMode(mode: 'stations' | 'cameras') {
 function renderPickerList() {
   const q = pickerSearch.value.trim().toLowerCase()
   pickerList.innerHTML = ''
+
+  if (!catalogsReady) {
+    pickerList.innerHTML = '<li class="meta">正在載入查詢資料…</li>'
+    return
+  }
 
   if (pickerMode === 'stations') {
     const items = stationCatalog.filter((s) => {
@@ -183,40 +189,36 @@ function parseMtrTime(value: string): number {
   return Date.parse(withOffset)
 }
 
-/** Derive minutes from documented time fields; never treat ttnt as a countdown. */
-function minutesUntil(arrival?: string, curr?: string): string {
+/**
+ * Derive minutes until arrival from the documented `time` field.
+ * Use wall-clock now (not API curr_time) so a stale block timestamp cannot
+ * inflate the countdown; never treat ttnt as a countdown.
+ */
+function minutesUntil(arrival?: string): string {
   if (!arrival || arrival === '-') return '—'
-  if (!curr || curr === '-') return arrival
   const a = parseMtrTime(arrival)
-  const c = parseMtrTime(curr)
-  if (!Number.isFinite(a) || !Number.isFinite(c)) return arrival
-  const mins = Math.max(0, Math.round((a - c) / 60000))
+  if (!Number.isFinite(a)) return arrival
+  const mins = Math.max(0, Math.round((a - Date.now()) / 60000))
   return `${mins} 分鐘`
 }
 
-function renderTrains(
-  title: string,
-  trains: TrainStop[],
-  currTime?: string,
-): string {
+function renderTrains(title: string, trains: TrainStop[]): string {
   if (!trains.length) {
     return `<div class="schedule-block"><h3>${escapeHtml(title)}</h3><p class="meta">此方向暫無班次。</p></div>`
   }
   const items = trains
     .slice(0, 4)
     .map((t) => {
-      const eta = minutesUntil(t.time, currTime)
+      const eta = minutesUntil(t.time)
       const time = t.time && t.time !== '-' ? t.time : ''
       const plat = t.plat ? `月台 ${t.plat}` : ''
       const via = t.route === 'RAC' ? '經馬場' : ''
       const type =
         t.timetype === 'A' ? '到站' : t.timetype === 'D' ? '開出' : ''
       const sub = [plat, time, via, type].filter(Boolean).join(' · ')
-      // Minutes are relative to the API update time, not wall-clock refresh.
-      const etaLabel = eta.endsWith('分鐘') ? `約 ${eta}（按更新時間）` : eta
       return `<li>
         <span class="dest">往 ${escapeHtml(destName(t.dest))}</span>
-        <span class="ttnt">${escapeHtml(etaLabel)}</span>
+        <span class="ttnt">${escapeHtml(eta)}</span>
         ${sub ? `<span class="sub">${escapeHtml(sub)}</span>` : ''}
       </li>`
     })
@@ -268,8 +270,8 @@ async function showStation(props: StationProps) {
           ${result.currTime ? `<p class="meta">更新時間：${escapeHtml(result.currTime)}</p>` : ''}
           ${delay}
         </div>
-        ${renderTrains('上行', result.up, result.currTime)}
-        ${renderTrains('下行', result.down, result.currTime)}
+        ${renderTrains('上行', result.up)}
+        ${renderTrains('下行', result.down)}
       `)
     } else if (result.kind === 'alert') {
       const link = result.url
@@ -361,6 +363,7 @@ async function bootstrap() {
   cameraCatalog = (cameras.features as Array<{ properties: CameraProps }>).map(
     (f) => f.properties,
   )
+  catalogsReady = true
   // Catalogs may finish after the user already opened the picker.
   if (!picker.hidden) renderPickerList()
 
