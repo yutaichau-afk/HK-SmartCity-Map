@@ -80,7 +80,8 @@ const stationReady = (t) =>
   t.includes('暫無資料') ||
   t.includes('網絡錯誤') ||
   t.includes('查詢太頻繁') ||
-  t.includes('限流')
+  t.includes('限流') ||
+  t.includes('查詢逾時')
 
 await page.waitForFunction(
   () => {
@@ -97,7 +98,8 @@ await page.waitForFunction(
       t.includes('暫無資料') ||
       t.includes('網絡錯誤') ||
       t.includes('查詢太頻繁') ||
-      t.includes('限流')
+      t.includes('限流') ||
+      t.includes('查詢逾時')
     )
   },
   null,

@@ -203,9 +203,11 @@ function renderTrains(
       const type =
         t.timetype === 'A' ? '到站' : t.timetype === 'D' ? '開出' : ''
       const sub = [plat, time, via, type].filter(Boolean).join(' · ')
+      // Minutes are relative to the API update time, not wall-clock refresh.
+      const etaLabel = eta.endsWith('分鐘') ? `約 ${eta}（按更新時間）` : eta
       return `<li>
         <span class="dest">往 ${escapeHtml(destName(t.dest))}</span>
-        <span class="ttnt">${escapeHtml(eta)}</span>
+        <span class="ttnt">${escapeHtml(etaLabel)}</span>
         ${sub ? `<span class="sub">${escapeHtml(sub)}</span>` : ''}
       </li>`
     })

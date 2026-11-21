@@ -150,14 +150,20 @@ export function lineLabel(
   return linesMeta[line]?.nameZh || line
 }
 
+const SCHEDULE_TIMEOUT_MS = 12000
+
 export async function fetchSchedule(
   line: string,
   station: string,
   signal?: AbortSignal,
 ): Promise<ScheduleResult> {
   const url = `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${encodeURIComponent(line)}&sta=${encodeURIComponent(station)}&lang=TC`
+  const timeout = new AbortController()
+  const onAbort = () => timeout.abort()
+  signal?.addEventListener('abort', onAbort, { once: true })
+  const timer = setTimeout(() => timeout.abort(), SCHEDULE_TIMEOUT_MS)
   try {
-    const res = await fetch(url, { signal })
+    const res = await fetch(url, { signal: timeout.signal })
     if (res.status === 429) {
       return { kind: 'error', message: '查詢太頻繁，港鐵資料暫時限流。請稍後再試。' }
     }
@@ -197,10 +203,12 @@ export async function fetchSchedule(
     const down = (block?.DOWN || []).filter((t) => t.valid !== 'N')
 
     if (!up.length && !down.length) {
-      // Official Next Train API Spec v1.7: Data Absence uses isdelay "V".
-      // "Y" means delayed (may also appear with empty UP/DOWN).
+      // Spec examples: data absence may use isdelay "V", or "Y" with curr_time "-".
+      // Preserve a delay message only when timestamps look usable.
+      const currTime = data.curr_time || data.cur_time || block?.curr_time
+      const absentTimestamp = !currTime || currTime === '-'
       let message = '暫時沒有即將到站的班次。'
-      if (data.isdelay === 'V') {
+      if (data.isdelay === 'V' || (data.isdelay === 'Y' && absentTimestamp)) {
         message = '暫時沒有到站班次資料（資料缺席／未能提供）。'
       } else if (data.isdelay === 'Y') {
         message = '此綫可能延誤，而且暫時沒有即將到站的班次。'
@@ -225,8 +233,14 @@ export async function fetchSchedule(
     }
   } catch (err) {
     if ((err as Error).name === 'AbortError') {
-      return { kind: 'error', message: '已取消查詢。' }
+      if (signal?.aborted) {
+        return { kind: 'error', message: '已取消查詢。' }
+      }
+      return { kind: 'error', message: '查詢逾時，請稍後再試。' }
     }
     return { kind: 'error', message: '網絡錯誤，未能讀取港鐵到站資料。' }
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', onAbort)
   }
 }
