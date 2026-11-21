@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-Hant-HK">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>香港智慧城市地圖</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="以 OpenFreeMap 顯示港鐵網絡到站班次與運輸署交通快拍。"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Sora:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="brand">
+          <p class="brand-mark">香港智慧城市地圖</p>
+          <p class="brand-sub">港鐵到站 · 交通快拍 · OpenFreeMap</p>
+        </div>
+        <div class="legend" aria-label="圖例">
+          <span class="legend-item"><i class="dot mtr"></i>港鐵車站</span>
+          <span class="legend-item"><i class="dot cam"></i>交通快拍</span>
+          <button type="button" class="picker-open" id="picker-open">
+            鍵盤查詢
+          </button>
+        </div>
+      </header>
+      <div id="map" role="region" aria-label="香港互動地圖"></div>
+      <section
+        id="picker"
+        class="picker"
+        hidden
+        aria-label="以鍵盤查詢港鐵車站或交通快拍"
+      >
+        <div class="picker-header">
+          <h2>鍵盤查詢</h2>
+          <button type="button" class="panel-close" id="picker-close" aria-label="關閉查詢">
+            ×
+          </button>
+        </div>
+        <div class="picker-tabs" role="tablist" aria-label="資料類型">
+          <button type="button" role="tab" id="tab-stations" aria-selected="true" aria-controls="picker-list">
+            港鐵車站
+          </button>
+          <button type="button" role="tab" id="tab-cameras" aria-selected="false" aria-controls="picker-list">
+            交通快拍
+          </button>
+        </div>
+        <label class="picker-search-label" for="picker-search">搜尋</label>
+        <input
+          id="picker-search"
+          class="picker-search"
+          type="search"
+          autocomplete="off"
+          placeholder="輸入站名、代碼或快拍位置"
+        />
+        <ul id="picker-list" class="picker-list" aria-label="查詢結果"></ul>
+      </section>
+      <aside
+        id="panel"
+        class="panel"
+        hidden
+        tabindex="-1"
+        aria-live="polite"
+        aria-label="詳情面板"
+      >
+        <button type="button" class="panel-close" id="panel-close" aria-label="關閉">
+          ×
+        </button>
+        <div id="panel-body"></div>
+      </aside>
+      <footer class="credit">
+        底圖
+        <a href="https://openfreemap.org/" target="_blank" rel="noreferrer"
+          >OpenFreeMap</a
+        >
+        · ©
+        <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer"
+          >OpenMapTiles</a
+        >
+        · 資料來自
+        <a
+          href="https://www.openstreetmap.org/copyright"
+          target="_blank"
+          rel="noreferrer"
+          >OpenStreetMap</a
+        >
+        · 港鐵／運輸署開放數據
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
