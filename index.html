@@ -26,9 +26,42 @@
         <div class="legend" aria-label="圖例">
           <span class="legend-item"><i class="dot mtr"></i>港鐵車站</span>
           <span class="legend-item"><i class="dot cam"></i>交通快拍</span>
+          <button type="button" class="picker-open" id="picker-open">
+            鍵盤查詢
+          </button>
         </div>
       </header>
-      <div id="map" role="application" aria-label="香港互動地圖"></div>
+      <div id="map" role="region" aria-label="香港互動地圖"></div>
+      <section
+        id="picker"
+        class="picker"
+        hidden
+        aria-label="以鍵盤查詢港鐵車站或交通快拍"
+      >
+        <div class="picker-header">
+          <h2>鍵盤查詢</h2>
+          <button type="button" class="panel-close" id="picker-close" aria-label="關閉查詢">
+            ×
+          </button>
+        </div>
+        <div class="picker-tabs" role="tablist" aria-label="資料類型">
+          <button type="button" role="tab" id="tab-stations" aria-selected="true" aria-controls="picker-list">
+            港鐵車站
+          </button>
+          <button type="button" role="tab" id="tab-cameras" aria-selected="false" aria-controls="picker-list">
+            交通快拍
+          </button>
+        </div>
+        <label class="picker-search-label" for="picker-search">搜尋</label>
+        <input
+          id="picker-search"
+          class="picker-search"
+          type="search"
+          autocomplete="off"
+          placeholder="輸入站名、代碼或快拍位置"
+        />
+        <ul id="picker-list" class="picker-list" role="listbox" aria-label="查詢結果"></ul>
+      </section>
       <aside id="panel" class="panel" hidden>
         <button type="button" class="panel-close" id="panel-close" aria-label="關閉">
           ×

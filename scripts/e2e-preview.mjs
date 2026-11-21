@@ -26,7 +26,6 @@ page.on('pageerror', (err) => {
 await page.goto('http://127.0.0.1:5173/', { waitUntil: 'domcontentloaded', timeout: 60000 })
 await page.waitForSelector('.maplibregl-canvas', { timeout: 30000 })
 await page.waitForFunction(() => !!window.__hkMap && window.__hkMap.isStyleLoaded?.(), null, { timeout: 60000 }).catch(() => {})
-// wait for our layers
 await page.waitForFunction(() => {
   const m = window.__hkMap
   return m && m.getLayer && m.getLayer('mtr-stations-circle') && m.getLayer('cameras-circle')
@@ -36,20 +35,22 @@ await page.waitForTimeout(5000)
 const overview = await page.evaluate(() => {
   const m = window.__hkMap
   const canvas = m.getCanvas()
-  // sample a few pixels to ensure not blank
   const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
   return {
     hasMap: !!m,
     zoom: m.getZoom(),
     center: m.getCenter(),
-    layers: ['mtr-lines-core','mtr-stations-circle','cameras-circle'].map((id) => !!m.getLayer(id)),
+    layers: ['mtr-lines-core', 'mtr-stations-circle', 'cameras-circle'].map((id) => !!m.getLayer(id)),
     webgl: !!gl,
   }
 })
-report.steps.push({ step: 'map_loaded', pass: overview.hasMap && overview.layers.every(Boolean) && !report.workerError, overview })
+report.steps.push({
+  step: 'map_loaded',
+  pass: overview.hasMap && overview.layers.every(Boolean) && !report.workerError,
+  overview,
+})
 await page.screenshot({ path: `${out}/01_map_overview.png` })
 
-// Click Admiralty via map project + mouse click
 const admClick = await page.evaluate(async () => {
   const m = window.__hkMap
   const stations = await fetch('/data/mtr-stations.geojson').then((r) => r.json())
@@ -60,15 +61,38 @@ const admClick = await page.evaluate(async () => {
 })
 await page.mouse.click(admClick.x, admClick.y)
 await page.waitForSelector('#panel:not([hidden])', { timeout: 15000 })
+
+// Wait until loading finishes, then accept arrival / empty / alert / error states.
 await page.waitForFunction(() => {
   const t = document.querySelector('#panel-body')?.textContent || ''
-  return t.includes('分鐘') || t.includes('暫無') || t.includes('特別') || t.includes('無法') || t.includes('暫停') || t.includes('資料')
+  return !t.includes('正在查詢到站班次')
 }, null, { timeout: 20000 })
-await page.waitForTimeout(1500)
+
+await page.waitForFunction(() => {
+  const t = document.querySelector('#panel-body')?.textContent || ''
+  return (
+    /\d+\s*分鐘/.test(t) ||
+    t.includes('暫時沒有即將到站的班次') ||
+    t.includes('此方向暫無班次') ||
+    t.includes('資料缺席') ||
+    t.includes('特別') ||
+    t.includes('無法') ||
+    t.includes('暫停') ||
+    t.includes('延誤') ||
+    t.includes('暫無資料')
+  )
+}, null, { timeout: 20000 })
+
+await page.waitForTimeout(500)
 const stationText = await page.locator('#panel-body').innerText()
 report.steps.push({
   step: 'station_panel',
-  pass: /金鐘/.test(stationText) && (/\d+\s*分鐘/.test(stationText) || /暫無|特別|無法|暫停|缺席/.test(stationText)),
+  pass:
+    /金鐘/.test(stationText) &&
+    (/\d+\s*分鐘/.test(stationText) ||
+      /暫時沒有即將到站的班次|此方向暫無班次|資料缺席|特別|無法|暫停|延誤|暫無資料/.test(
+        stationText,
+      )),
   preview: stationText.slice(0, 400),
 })
 await page.screenshot({ path: `${out}/02_station_arrivals.png` })
@@ -76,17 +100,27 @@ await page.screenshot({ path: `${out}/02_station_arrivals.png` })
 await page.click('#panel-close')
 await page.waitForTimeout(500)
 
-// Click a camera near Admiralty
 const camClick = await page.evaluate(async () => {
-  const cams = await fetch('/data/cameras.geojson').then((r) => r.json())
+  const [cams, stations] = await Promise.all([
+    fetch('/data/cameras.geojson').then((r) => r.json()),
+    fetch('/data/mtr-stations.geojson').then((r) => r.json()),
+  ])
   const target = [114.166, 22.278]
   let best = null
-  let bestD = Infinity
+  let bestScore = Infinity
   for (const f of cams.features) {
     const [lon, lat] = f.geometry.coordinates
-    const d = (lon - target[0]) ** 2 + (lat - target[1]) ** 2
-    if (d < bestD) {
-      bestD = d
+    const dTarget = (lon - target[0]) ** 2 + (lat - target[1]) ** 2
+    let minSta = Infinity
+    for (const s of stations.features) {
+      const [slon, slat] = s.geometry.coordinates
+      const d = (lon - slon) ** 2 + (lat - slat) ** 2
+      if (d < minSta) minSta = d
+    }
+    // Prefer cameras near Admiralty that are not stacked on a station.
+    const score = dTarget + (minSta < 1e-8 ? 10 : 0)
+    if (score < bestScore) {
+      bestScore = score
       best = f
     }
   }
@@ -111,7 +145,6 @@ const camClick2 = await page.evaluate(async (key) => {
 await page.mouse.click(camClick2.x, camClick2.y)
 await page.waitForSelector('#panel:not([hidden])', { timeout: 15000 })
 await page.waitForSelector('#snapshot-img', { timeout: 10000 })
-// wait load or error status
 await page.waitForFunction(() => {
   const s = document.querySelector('#snapshot-status')?.textContent || ''
   return s.includes('已顯示') || s.includes('未能載入') || s.includes('未能提供')
@@ -130,15 +163,72 @@ report.steps.push({
 })
 await page.screenshot({ path: `${out}/03_camera_snapshot.png` })
 
-// pan/zoom
+const before = await page.evaluate(() => {
+  const m = window.__hkMap
+  const c = m.getCenter()
+  return { lng: c.lng, lat: c.lat, zoom: m.getZoom() }
+})
 await page.mouse.move(700, 450)
 await page.mouse.down()
-await page.mouse.move(650, 420, { steps: 8 })
+await page.mouse.move(620, 400, { steps: 12 })
 await page.mouse.up()
+await page.waitForFunction((prev) => {
+  const c = window.__hkMap.getCenter()
+  return Math.abs(c.lng - prev.lng) > 1e-5 || Math.abs(c.lat - prev.lat) > 1e-5
+}, before, { timeout: 5000 }).catch(() => {})
+const afterPan = await page.evaluate(() => {
+  const m = window.__hkMap
+  const c = m.getCenter()
+  return { lng: c.lng, lat: c.lat, zoom: m.getZoom() }
+})
+const panMoved =
+  Math.abs(afterPan.lng - before.lng) > 1e-5 ||
+  Math.abs(afterPan.lat - before.lat) > 1e-5
+
+const zoomBefore = afterPan.zoom
 await page.click('button.maplibregl-ctrl-zoom-in')
-await page.waitForTimeout(800)
-report.steps.push({ step: 'pan_zoom', pass: true })
+await page.waitForFunction((z) => window.__hkMap.getZoom() > z + 0.01, zoomBefore, {
+  timeout: 5000,
+}).catch(() => {})
+const zoomAfter = await page.evaluate(() => window.__hkMap.getZoom())
+const zoomed = zoomAfter > zoomBefore + 0.01
+
+report.steps.push({
+  step: 'pan_zoom',
+  pass: panMoved && zoomed,
+  before,
+  afterPan,
+  zoomBefore,
+  zoomAfter,
+})
 await page.screenshot({ path: `${out}/04_after_pan_zoom.png` })
+
+// Keyboard-accessible picker: open via control, filter, activate list option
+await page.click('#panel-close').catch(() => {})
+await page.click('#picker-open')
+await page.waitForSelector('#picker:not([hidden])')
+await page.fill('#picker-search', '金鐘')
+const firstBtn = page.locator('#picker-list button').first()
+await firstBtn.waitFor({ state: 'visible' })
+await firstBtn.focus()
+await firstBtn.press('Enter')
+await page.waitForSelector('#picker[hidden]', { timeout: 5000 }).catch(() => {})
+await page.waitForSelector('#panel:not([hidden])', { timeout: 15000 })
+await page.waitForFunction(() => {
+  const t = document.querySelector('#panel-body')?.textContent || ''
+  return t.includes('金鐘') && !t.includes('正在查詢到站班次')
+}, null, { timeout: 25000 })
+const pickerText = await page.locator('#panel-body').innerText()
+report.steps.push({
+  step: 'keyboard_picker',
+  pass:
+    /金鐘/.test(pickerText) &&
+    (/\d+\s*分鐘/.test(pickerText) ||
+      /暫時沒有即將到站的班次|此方向暫無班次|資料缺席|特別|無法|暫停|延誤|暫無資料/.test(
+        pickerText,
+      )),
+  preview: pickerText.slice(0, 200),
+})
 
 report.pass = report.steps.every((s) => s.pass) && !report.workerError
 fs.writeFileSync(`${out}/e2e_report.json`, JSON.stringify(report, null, 2))

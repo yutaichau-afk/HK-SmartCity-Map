@@ -100,6 +100,138 @@ body,
   white-space: nowrap;
 }
 
+.picker-open {
+  margin-left: 4px;
+  padding: 6px 12px;
+  border: 1px solid rgba(11, 110, 106, 0.35);
+  border-radius: 999px;
+  background: rgba(11, 110, 106, 0.1);
+  color: var(--accent-deep);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.picker-open:focus-visible,
+.picker-tabs button:focus-visible,
+.picker-list button:focus-visible,
+.picker-search:focus-visible,
+.panel-close:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.picker {
+  position: absolute;
+  z-index: 4;
+  top: 96px;
+  left: 16px;
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100vh - 140px);
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  border: 1px solid rgba(15, 36, 48, 0.08);
+  box-shadow: var(--shadow);
+}
+
+.picker[hidden] {
+  display: none;
+}
+
+.picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.picker-header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+}
+
+.picker-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.picker-tabs button {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.65);
+  font: inherit;
+  cursor: pointer;
+}
+
+.picker-tabs button[aria-selected='true'] {
+  background: rgba(11, 110, 106, 0.14);
+  border-color: rgba(11, 110, 106, 0.35);
+  color: var(--accent-deep);
+  font-weight: 600;
+}
+
+.picker-search-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.picker-search {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  background: #fff;
+}
+
+.picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+}
+
+.picker-list li {
+  margin: 0;
+}
+
+.picker-list button {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 36, 48, 0.06);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.75);
+  font: inherit;
+  cursor: pointer;
+}
+
+.picker-list button:hover {
+  background: rgba(11, 110, 106, 0.08);
+}
+
+.picker-list .item-meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
 .dot {
   width: 10px;
   height: 10px;
@@ -269,7 +401,7 @@ body,
   position: absolute;
   z-index: 2;
   left: 12px;
-  right: 12px;
+  right: 96px;
   bottom: 10px;
   padding: 8px 10px;
   border-radius: 10px;
@@ -278,6 +410,11 @@ body,
   font-size: 0.72rem;
   line-height: 1.4;
   pointer-events: auto;
+}
+
+/* Keep MapLibre bottom-left scale clear of the credit strip. */
+.maplibregl-ctrl-bottom-left {
+  bottom: 52px;
 }
 
 .credit a {

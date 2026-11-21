@@ -39,11 +39,110 @@ type CameraProps = {
 const panel = document.querySelector<HTMLElement>('#panel')!
 const panelBody = document.querySelector<HTMLElement>('#panel-body')!
 const panelClose = document.querySelector<HTMLButtonElement>('#panel-close')!
+const picker = document.querySelector<HTMLElement>('#picker')!
+const pickerOpen = document.querySelector<HTMLButtonElement>('#picker-open')!
+const pickerClose = document.querySelector<HTMLButtonElement>('#picker-close')!
+const pickerSearch = document.querySelector<HTMLInputElement>('#picker-search')!
+const pickerList = document.querySelector<HTMLUListElement>('#picker-list')!
+const tabStations = document.querySelector<HTMLButtonElement>('#tab-stations')!
+const tabCameras = document.querySelector<HTMLButtonElement>('#tab-cameras')!
 
 let abortCtrl: AbortController | null = null
 let linesMeta: LinesMeta = {}
+let pickerMode: 'stations' | 'cameras' = 'stations'
+let stationCatalog: StationProps[] = []
+let cameraCatalog: CameraProps[] = []
 
 panelClose.addEventListener('click', () => closePanel())
+pickerOpen.addEventListener('click', () => openPicker())
+pickerClose.addEventListener('click', () => closePicker())
+tabStations.addEventListener('click', () => setPickerMode('stations'))
+tabCameras.addEventListener('click', () => setPickerMode('cameras'))
+pickerSearch.addEventListener('input', () => renderPickerList())
+
+function openPicker() {
+  picker.hidden = false
+  renderPickerList()
+  pickerSearch.focus()
+}
+
+function closePicker() {
+  picker.hidden = true
+}
+
+function setPickerMode(mode: 'stations' | 'cameras') {
+  pickerMode = mode
+  tabStations.setAttribute('aria-selected', mode === 'stations' ? 'true' : 'false')
+  tabCameras.setAttribute('aria-selected', mode === 'cameras' ? 'true' : 'false')
+  pickerSearch.value = ''
+  renderPickerList()
+  pickerSearch.focus()
+}
+
+function renderPickerList() {
+  const q = pickerSearch.value.trim().toLowerCase()
+  pickerList.innerHTML = ''
+
+  if (pickerMode === 'stations') {
+    const items = stationCatalog.filter((s) => {
+      if (!q) return true
+      return (
+        s.nameZh.includes(q) ||
+        s.nameEn.toLowerCase().includes(q) ||
+        s.code.toLowerCase().includes(q) ||
+        s.lines.toLowerCase().includes(q)
+      )
+    })
+    for (const s of items) {
+      const li = document.createElement('li')
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.setAttribute('role', 'option')
+      btn.setAttribute(
+        'aria-label',
+        `港鐵車站 ${s.nameZh} ${s.nameEn} ${s.code}`,
+      )
+      btn.innerHTML = `<strong>${escapeHtml(s.nameZh)}</strong><span class="item-meta">${escapeHtml(s.nameEn)} · ${escapeHtml(s.code)} · ${escapeHtml(s.lines)}</span>`
+      btn.addEventListener('click', () => {
+        closePicker()
+        void showStation(s)
+      })
+      li.appendChild(btn)
+      pickerList.appendChild(li)
+    }
+    if (!items.length) {
+      pickerList.innerHTML = '<li class="meta">沒有符合的車站。</li>'
+    }
+    return
+  }
+
+  const items = cameraCatalog.filter((c) => {
+    if (!q) return true
+    return (
+      c.description.toLowerCase().includes(q) ||
+      c.key.toLowerCase().includes(q) ||
+      c.district.includes(q) ||
+      c.region.includes(q)
+    )
+  })
+  for (const c of items) {
+    const li = document.createElement('li')
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.setAttribute('role', 'option')
+    btn.setAttribute('aria-label', `交通快拍 ${c.description}`)
+    btn.innerHTML = `<strong>${escapeHtml(c.description)}</strong><span class="item-meta">${escapeHtml(c.region)} · ${escapeHtml(c.district)} · ${escapeHtml(c.key)}</span>`
+    btn.addEventListener('click', () => {
+      closePicker()
+      showCamera(c)
+    })
+    li.appendChild(btn)
+    pickerList.appendChild(li)
+  }
+  if (!items.length) {
+    pickerList.innerHTML = '<li class="meta">沒有符合的快拍點。</li>'
+  }
+}
 
 function closePanel() {
   panel.hidden = true
@@ -65,14 +164,29 @@ function escapeHtml(s: string): string {
     .replaceAll('"', '&quot;')
 }
 
-function renderTrains(title: string, trains: TrainStop[]): string {
+/** Derive minutes from documented time fields; never treat ttnt as a countdown. */
+function minutesUntil(arrival?: string, curr?: string): string {
+  if (!arrival || arrival === '-') return '—'
+  if (!curr || curr === '-') return arrival
+  const a = Date.parse(arrival.replace(' ', 'T'))
+  const c = Date.parse(curr.replace(' ', 'T'))
+  if (!Number.isFinite(a) || !Number.isFinite(c)) return arrival
+  const mins = Math.max(0, Math.round((a - c) / 60000))
+  return `${mins} 分鐘`
+}
+
+function renderTrains(
+  title: string,
+  trains: TrainStop[],
+  currTime?: string,
+): string {
   if (!trains.length) {
     return `<div class="schedule-block"><h3>${escapeHtml(title)}</h3><p class="meta">此方向暫無班次。</p></div>`
   }
   const items = trains
     .slice(0, 4)
     .map((t) => {
-      const mins = t.ttnt && t.ttnt !== '-' ? `${t.ttnt} 分鐘` : '—'
+      const eta = minutesUntil(t.time, currTime)
       const time = t.time && t.time !== '-' ? t.time : ''
       const plat = t.plat ? `月台 ${t.plat}` : ''
       const via = t.route === 'RAC' ? '經馬場' : ''
@@ -81,7 +195,7 @@ function renderTrains(title: string, trains: TrainStop[]): string {
       const sub = [plat, time, via, type].filter(Boolean).join(' · ')
       return `<li>
         <span class="dest">往 ${escapeHtml(destName(t.dest))}</span>
-        <span class="ttnt">${escapeHtml(mins)}</span>
+        <span class="ttnt">${escapeHtml(eta)}</span>
         ${sub ? `<span class="sub">${escapeHtml(sub)}</span>` : ''}
       </li>`
     })
@@ -98,16 +212,18 @@ async function showStation(props: StationProps) {
     })
     .join('')
 
+  // Abort any in-flight request before painting loading UI, so a superseded
+  // fetch cannot leave the panel stuck on "正在查詢…".
+  abortCtrl?.abort()
+  abortCtrl = new AbortController()
+  const signal = abortCtrl.signal
+
   openPanel(`
     <h2>${escapeHtml(props.nameZh)}</h2>
     <p class="meta">${escapeHtml(props.nameEn)} · ${escapeHtml(props.code)}</p>
     <div>${chips}</div>
     <div class="status-box info">正在查詢到站班次…</div>
   `)
-
-  abortCtrl?.abort()
-  abortCtrl = new AbortController()
-  const signal = abortCtrl.signal
 
   const results = await Promise.all(
     lines.map(async (line) => ({ line, result: await fetchSchedule(line, props.code, signal) })),
@@ -128,8 +244,8 @@ async function showStation(props: StationProps) {
           ${result.currTime ? `<p class="meta">更新時間：${escapeHtml(result.currTime)}</p>` : ''}
           ${delay}
         </div>
-        ${renderTrains('上行', result.up)}
-        ${renderTrains('下行', result.down)}
+        ${renderTrains('上行', result.up, result.currTime)}
+        ${renderTrains('下行', result.down, result.currTime)}
       `)
     } else if (result.kind === 'alert') {
       const link = result.url
@@ -168,6 +284,10 @@ async function showStation(props: StationProps) {
 }
 
 function showCamera(props: CameraProps) {
+  // Cancel any in-flight station schedule requests so they cannot replace this panel.
+  abortCtrl?.abort()
+  abortCtrl = null
+
   const src = `${props.url}${props.url.includes('?') ? '&' : '?'}_ts=${Date.now()}`
   openPanel(`
     <h2>交通快拍</h2>
@@ -200,6 +320,12 @@ async function bootstrap() {
   ])
 
   linesMeta = index.lines as LinesMeta
+  stationCatalog = (stations.features as Array<{ properties: StationProps }>).map(
+    (f) => f.properties,
+  )
+  cameraCatalog = (cameras.features as Array<{ properties: CameraProps }>).map(
+    (f) => f.properties,
+  )
 
   const map = new MapLibreMap({
     container: 'map',
@@ -333,22 +459,21 @@ async function bootstrap() {
       hover.remove()
     })
 
-    map.on('click', 'mtr-stations-circle', (e) => {
-      const f = e.features?.[0]
+    // Prefer the topmost rendered feature so overlapping station/camera
+    // points do not fire both handlers (which races the detail panel).
+    map.on('click', (e) => {
+      const feats = map.queryRenderedFeatures(e.point, {
+        layers: ['mtr-stations-circle', 'cameras-circle'],
+      })
+      const f = feats[0]
       if (!f) return
-      e.originalEvent.stopPropagation()
-      void showStation(f.properties as StationProps)
-    })
-
-    map.on('click', 'cameras-circle', (e) => {
-      const f = e.features?.[0]
-      if (!f) return
-      e.originalEvent.stopPropagation()
-      showCamera(f.properties as CameraProps)
-    })
-
-    map.on('click', () => {
-      // keep panel open until user closes; no auto-close on map click for mobile usability
+      if (f.layer.id === 'mtr-stations-circle') {
+        void showStation(f.properties as StationProps)
+        return
+      }
+      if (f.layer.id === 'cameras-circle') {
+        showCamera(f.properties as CameraProps)
+      }
     })
   })
 

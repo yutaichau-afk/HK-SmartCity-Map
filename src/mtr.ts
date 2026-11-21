@@ -197,15 +197,20 @@ export async function fetchSchedule(
     const down = (block?.DOWN || []).filter((t) => t.valid !== 'N')
 
     if (!up.length && !down.length) {
+      // Official Next Train API Spec v1.7: Data Absence uses isdelay "V".
+      // "Y" means delayed (may also appear with empty UP/DOWN).
+      let message = '暫時沒有即將到站的班次。'
+      if (data.isdelay === 'V') {
+        message = '暫時沒有到站班次資料（資料缺席／未能提供）。'
+      } else if (data.isdelay === 'Y') {
+        message = '此綫可能延誤，而且暫時沒有即將到站的班次。'
+      }
       return {
         kind: 'empty',
         line,
         station,
         isdelay: data.isdelay,
-        message:
-          data.isdelay === 'V'
-            ? '暫時沒有到站班次資料（資料缺席）。'
-            : '暫時沒有即將到站的班次。',
+        message,
       }
     }
 
