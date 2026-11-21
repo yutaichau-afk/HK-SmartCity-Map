@@ -166,12 +166,22 @@ function escapeHtml(s: string): string {
     .replaceAll('"', '&quot;')
 }
 
+/** Parse MTR local timestamps as Asia/Hong_Kong (+08:00), never as the browser zone. */
+function parseMtrTime(value: string): number {
+  // API values look like "2026-11-21 16:31:09" with no offset.
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  const withOffset = /[zZ]|[+-]\d{2}:?\d{2}$/.test(normalized)
+    ? normalized
+    : `${normalized}+08:00`
+  return Date.parse(withOffset)
+}
+
 /** Derive minutes from documented time fields; never treat ttnt as a countdown. */
 function minutesUntil(arrival?: string, curr?: string): string {
   if (!arrival || arrival === '-') return '—'
   if (!curr || curr === '-') return arrival
-  const a = Date.parse(arrival.replace(' ', 'T'))
-  const c = Date.parse(curr.replace(' ', 'T'))
+  const a = parseMtrTime(arrival)
+  const c = parseMtrTime(curr)
   if (!Number.isFinite(a) || !Number.isFinite(c)) return arrival
   const mins = Math.max(0, Math.round((a - c) / 60000))
   return `${mins} 分鐘`
